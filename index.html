@@ -137,6 +137,7 @@ h2 .sub{margin-left:auto;font-weight:600;}
 .wk .row .n{font-weight:700;}
 .wk .meter{flex:1;height:8px;border-radius:5px;background:var(--line);overflow:hidden;max-width:130px;}
 .wk .meter i{display:block;height:100%;border-radius:5px;background:currentColor;}
+.hline{flex-basis:100%;font-size:14px;color:var(--ink2);line-height:1.5;}
 
 details{margin-top:16px;}
 summary{font-size:14px;font-weight:700;color:var(--mut);cursor:pointer;
@@ -220,6 +221,9 @@ details .card{margin-top:8px;}
 
     <h2 id="wkTitle">今週（火〜月）</h2>
     <div class="card wk" id="week"></div>
+
+    <h2>履歴（過去7日）</h2>
+    <div class="card" id="hist"></div>
 
     <button class="copy" id="copyBtn">この内容をコピー</button>
 
@@ -529,7 +533,34 @@ function render(){
     `<div class="row"><span class="n">SES</span><span class="t">提案 ${wc.prop} ・ 面談依頼 ${wc.meet} ・ オファー ${wc.offer} ・ 決定 ${wc.deal}</span></div>`+
     `<div class="row"><span class="n">エンド開拓</span><span class="t">営業 ${wc.esales} ・ アポ ${wc.eappo} ・ 案件化 ${wc.ecase}</span></div>`;
 
+  renderHistory();
   renderSettings();
+}
+
+// 分析タブ: 過去7日の履歴（今日を含む・記録のある日だけ）
+function renderHistory(){
+  const box=document.getElementById("hist");
+  const d0=new Date();
+  const base=new Date(d0.getFullYear(),d0.getMonth(),d0.getDate()).getTime();
+  let h="";
+  for(let i=0;i<7;i++){
+    const a=base-i*864e5, b=a+864e5;
+    const t=totals(a,b), c=evCounts(a,b);
+    const sum=Object.values(t).reduce((x,y)=>x+y,0);
+    if(sum<=0&&!EVS.some(e=>c[e.id]>0))continue;
+    const d=new Date(a);
+    const hours=CATS.filter(cat=>t[cat.id]>0)
+      .map(cat=>`${cat.nm} ${hrs(t[cat.id])}h`).join(" ・ ");
+    const cnts=EVS.filter(e=>c[e.id]>0)
+      .map(e=>`${e.nm} ${c[e.id]}`).join(" ・ ");
+    h+=`<div class="row" style="flex-wrap:wrap">
+      <span class="n">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）${i===0?"・今日":""}</span>
+      <span class="d">${hrs(sum)}h</span>
+      ${hours?`<span class="hline">${hours}</span>`:""}
+      ${cnts?`<span class="hline">件数: ${cnts}</span>`:""}
+    </div>`;
+  }
+  box.innerHTML=h||`<div class="empty">まだありません</div>`;
 }
 
 function renderTimeline(ta,tb){
