@@ -141,6 +141,16 @@ h2 .sub{margin-left:auto;font-weight:600;}
 .hbtn{background:none;border:1px solid var(--rule);border-radius:9px;
   padding:5px 10px;font-size:13px;font-weight:600;color:var(--ink2);white-space:nowrap;}
 .hdet{flex-basis:100%;border-top:1px solid var(--line);margin-top:8px;}
+.hnote{flex-basis:100%;font-size:14px;line-height:1.5;color:var(--ink);
+  background:color-mix(in srgb,var(--accent) 8%,var(--card));
+  border-left:3px solid var(--accent);border-radius:0 8px 8px 0;
+  padding:7px 10px;margin-top:4px;white-space:pre-wrap;}
+.dnote{padding:10px 0 4px;}
+.dnote textarea{width:100%;min-height:64px;font:inherit;font-size:14px;
+  padding:9px 10px;border:1px solid var(--rule);border-radius:10px;
+  background:var(--card);color:var(--ink);resize:vertical;}
+.dnote .lb2{font-size:13px;font-weight:700;color:var(--mut);
+  letter-spacing:.04em;margin-bottom:5px;}
 .drow{display:flex;align-items:center;gap:9px;padding:8px 0;font-size:14px;
   border-bottom:1px solid var(--line);}
 .drow:last-child{border-bottom:none;}
@@ -311,6 +321,7 @@ function load(){
   if(!Array.isArray(db.sessions))db.sessions=[];
   if(!Array.isArray(db.events))db.events=[];
   if(!db.goals)db.goals={};
+  if(!db.notes)db.notes={};
   if(db.running===undefined)db.running=null;
   if(!db.migrated){
     try{const r=localStorage.getItem(OLDKEY);
@@ -343,6 +354,9 @@ function monthRange(){const d=new Date();
   return [new Date(d.getFullYear(),d.getMonth(),1).getTime(),
           new Date(d.getFullYear(),d.getMonth()+1,1).getTime()];}
 function monthKey(){const d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1);}
+function dayKey(ts){const d=new Date(ts);
+  return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function noteOf(ts){const n=db.notes[dayKey(ts)];return n&&n.t?n.t:"";}
 
 function totals(from,to){
   const t={};CATS.forEach(c=>t[c.id]=0);
@@ -567,7 +581,9 @@ function renderHistory(){
     const a=base-i*864e5, b=a+864e5;
     const t=totals(a,b), c=evCounts(a,b);
     const sum=Object.values(t).reduce((x,y)=>x+y,0);
-    if(sum<=0&&!EVS.some(e=>c[e.id]>0))continue;
+    const note=noteOf(a);
+    // 記録が無くてもメモがあれば残す（メモが隠れて読めなくなるのを防ぐ）
+    if(sum<=0&&!EVS.some(e=>c[e.id]>0)&&!note&&i>0)continue;
     const d=new Date(a);
     const hours=CATS.filter(cat=>t[cat.id]>0)
       .map(cat=>`${cat.nm} ${hrs(t[cat.id])}h`).join(" ・ ");
@@ -579,6 +595,7 @@ function renderHistory(){
       <button class="hbtn" data-a="${a}">${openDay===a?"閉じる":"修正"}</button>
       ${hours?`<span class="hline">${hours}</span>`:""}
       ${cnts?`<span class="hline">件数: ${cnts}</span>`:""}
+      ${note?`<div class="hnote">${esc(note)}</div>`:""}
       <div class="hdet" id="hdet-${a}"${openDay===a?"":" hidden"}></div>
     </div>`;
   }
@@ -612,7 +629,15 @@ function renderDayDetail(a){
       <span class="n">${ev.nm}${x.nm?`「${esc(x.nm)}」`:""}</span>
       <button class="x" data-ei="${db.events.indexOf(x)}">×</button></div>`;
   });
-  el.innerHTML=h||`<div class="empty" style="padding:8px 0">記録なし</div>`;
+  el.innerHTML=(h||`<div class="empty" style="padding:8px 0">記録なし</div>`)+
+    `<div class="dnote"><div class="lb2">この日のメモ</div>
+      <textarea id="dnote-${a}" placeholder="例: 提案は実際5件。時間は+1.5h。あとで直す">${esc(noteOf(a))}</textarea></div>`;
+  const na=document.getElementById("dnote-"+a);
+  na.onchange=()=>{
+    const v=na.value.trim(), k=dayKey(a);
+    if(v)db.notes[k]={t:v,u:Date.now()};else delete db.notes[k];
+    save();renderHistory();
+  };
   el.querySelectorAll("[data-si]").forEach(btn=>btn.onclick=()=>{
     const x=db.sessions[+btn.dataset.si];if(!x)return;
     const c=CATS.find(y=>y.id===x.cat);
@@ -687,6 +712,9 @@ function copyText(){
     const ev=EVS.find(x=>x.id===e.t);
     return (e.t==="prop"?"":(ev?ev.nm:e.t)+" ")+e.nm;
   }).join(" / ")}\n`;
+  const tn=noteOf(ta);
+  if(tn)t+=`メモ: ${tn}
+`;
   const [ma,mb]=monthRange(), mc=evCounts(ma,mb), mt=totals(ma,mb);
   const mk=monthKey(), goal=db.goals[mk]||{};
   const gs=(v,g,u)=>g!=null?`${v}/${g}${u}`:`${v}${u}`;
@@ -763,7 +791,7 @@ document.getElementById("copyBtn").onclick=async()=>{
 document.getElementById("expBtn").onclick=async()=>{
   const btn=document.getElementById("expBtn");
   await toClipboard(JSON.stringify({v:2,exported:Date.now(),
-    sessions:db.sessions,events:db.events,goals:db.goals}));
+    sessions:db.sessions,events:db.events,goals:db.goals,notes:db.notes}));
   btn.textContent="コピーしました";
   setTimeout(()=>{btn.textContent="この端末のデータを書き出す（コピー）";},1600);
 };
@@ -787,6 +815,10 @@ function mergeIncoming(inc){
     if(!g||typeof g!=="object")return;
     const cur=db.goals[m];
     if(!cur||(g.u||0)>(cur.u||0))db.goals[m]=g;});
+  Object.entries(inc.notes&&typeof inc.notes==="object"?inc.notes:{}).forEach(([k,n])=>{
+    if(!n||typeof n!=="object"||!n.t)return;
+    const cur=db.notes[k];
+    if(!cur||(n.u||0)>(cur.u||0))db.notes[k]={t:String(n.t),u:n.u||0};});
   db.sessions.sort((a,b)=>a.start-b.start);
   db.events.sort((a,b)=>a.ts-b.ts);
   save();setBuiltFor="";render();
@@ -823,7 +855,7 @@ document.getElementById("impFile").onchange=ev=>{
   const bkName=()=>{const d=new Date();
     return `timelog-backup-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.json`;};
   const bkBody=()=>JSON.stringify({v:2,exported:Date.now(),
-    sessions:db.sessions,events:db.events,goals:db.goals});
+    sessions:db.sessions,events:db.events,goals:db.goals,notes:db.notes});
   const dl=window.claude&&window.claude.use?await window.claude.use("downloads"):null;
   if(!dl){
     if(!("download" in document.createElement("a")))return;
