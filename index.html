@@ -1,0 +1,770 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f5450">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="工数ログ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>工数ログ 久保</title>
+<style>
+:root{
+  --paper:#f2f3f0; --card:#fff; --ink:#15181a; --ink2:#4a4f4c; --mut:#767b75;
+  --line:#dfe1dc; --rule:#c2c5be; --accent:#0f5450;
+  --c1:#2f6fb0; --c2:#1f7a5a; --c3:#8a5cb8; --c4:#8a8880;
+  --shadow:0 1px 2px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#101211; --card:#1a1d1b; --ink:#eef0ec; --ink2:#b8bdb7; --mut:#8d938c;
+  --line:#2a2e2b; --rule:#3b403c; --accent:#5cbdb4;
+  --c1:#63a4dd; --c2:#4fb98d; --c3:#b394e0; --c4:#9a9a94;
+  --shadow:none;
+}}
+:root[data-theme="dark"]{
+  --paper:#101211; --card:#1a1d1b; --ink:#eef0ec; --ink2:#b8bdb7; --mut:#8d938c;
+  --line:#2a2e2b; --rule:#3b403c; --accent:#5cbdb4;
+  --c1:#63a4dd; --c2:#4fb98d; --c3:#b394e0; --c4:#9a9a94;
+  --shadow:none;
+}
+*{box-sizing:border-box;}
+body{background:var(--paper);margin:0;}
+.app{font-family:system-ui,-apple-system,"Segoe UI","Hiragino Sans","Yu Gothic UI",sans-serif;
+  color:var(--ink);max-width:560px;margin:0 auto;padding:16px 14px 96px;
+  font-size:15px;line-height:1.6;font-variant-numeric:tabular-nums;}
+
+.hd{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;}
+.hd h1{font-size:17px;font-weight:700;margin:0;}
+.hd .dt{margin-left:auto;font-size:14px;color:var(--ink2);}
+
+button{font:inherit;color:inherit;cursor:pointer;}
+.panel{display:none;}
+.panel.on{display:block;}
+
+/* 固定タブバー */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:10;
+  background:var(--paper);border-top:1px solid var(--line);
+  padding:8px 14px calc(8px + env(safe-area-inset-bottom,0px));}
+.tabbar .tw{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;
+  background:var(--card);border:1px solid var(--line);border-radius:13px;padding:5px;}
+.tabbar button{border:none;background:none;border-radius:9px;padding:10px 4px;
+  font-size:14px;font-weight:700;color:var(--mut);-webkit-tap-highlight-color:transparent;}
+.tabbar button.on{background:var(--accent);color:#fff;}
+
+/* 計測 */
+.now{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:16px;box-shadow:var(--shadow);margin-bottom:12px;text-align:center;}
+.now .lbl{font-size:14px;font-weight:700;color:var(--mut);}
+.now .el{font-size:clamp(40px,13vw,60px);font-weight:800;letter-spacing:-.03em;line-height:1;margin:6px 0 2px;}
+.now .since{font-size:13px;color:var(--mut);}
+.now.on .lbl{color:var(--ink);}
+.catrow{width:100%;background:var(--card);border:2px solid var(--line);border-radius:14px;
+  padding:14px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);
+  margin-bottom:8px;text-align:left;-webkit-tap-highlight-color:transparent;
+  transition:border-color .12s,background .12s;}
+.catrow .dot{width:10px;height:10px;border-radius:50%;background:currentColor;flex:none;}
+.catrow .nm{flex:1;font-size:15px;font-weight:700;color:var(--ink);line-height:1.3;}
+.catrow .h{font-size:16px;font-weight:800;color:var(--ink);white-space:nowrap;}
+.catrow .go{font-size:13px;font-weight:700;color:var(--mut);white-space:nowrap;}
+.catrow.on{border-color:currentColor;background:color-mix(in srgb,currentColor 10%,var(--card));}
+.catrow.on .go{color:var(--ink);}
+.c1{color:var(--c1);} .c2{color:var(--c2);} .c3{color:var(--c3);} .c4{color:var(--c4);}
+.bar{display:flex;gap:8px;margin-top:4px;}
+.bar button{flex:1;background:var(--card);border:1px solid var(--rule);border-radius:11px;
+  padding:11px 8px;font-size:14px;font-weight:600;}
+.bar button.stop{border-color:var(--accent);color:var(--accent);}
+
+h2{font-size:14px;font-weight:700;color:var(--mut);margin:24px 0 8px;letter-spacing:.04em;
+  display:flex;align-items:baseline;}
+h2 .sub{margin-left:auto;font-weight:600;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:4px 14px;box-shadow:var(--shadow);}
+.row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);}
+.row:last-child{border-bottom:none;}
+.row .t{font-size:14px;color:var(--ink2);white-space:nowrap;}
+.row .n{flex:1;font-weight:600;}
+.row .d{font-weight:700;white-space:nowrap;}
+.row .x{background:none;border:none;color:var(--mut);font-size:19px;line-height:1;padding:2px 4px;}
+.empty{padding:14px 0;color:var(--mut);font-size:14px;}
+
+.add{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.add select,.add input{font:inherit;font-size:14px;padding:9px 10px;border:1px solid var(--rule);
+  border-radius:10px;background:var(--card);color:var(--ink);}
+.add select{flex:1 1 100%;}
+.add input[type="number"]{width:78px;}
+.add input[type="time"]{width:106px;}
+.add button{padding:9px 12px;border:1px solid var(--rule);border-radius:10px;
+  background:var(--card);font-weight:600;font-size:14px;flex:1;}
+.add .lb{font-size:14px;color:var(--ink2);align-self:center;}
+
+/* 件数 */
+.inbox{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:14px;box-shadow:var(--shadow);}
+.inbox .memo{width:100%;font:inherit;font-size:14px;padding:10px 11px;margin-bottom:10px;
+  border:1px solid var(--rule);border-radius:10px;background:var(--card);color:var(--ink);}
+.plusrow{display:flex;gap:12px;align-items:center;}
+.plus{flex:1;padding:20px 10px;border:none;border-radius:12px;
+  background:var(--accent);color:#fff;font-size:20px;font-weight:800;
+  -webkit-tap-highlight-color:transparent;}
+.plus:active{opacity:.85;}
+.pstat{text-align:right;font-size:14px;color:var(--ink2);line-height:1.5;white-space:nowrap;}
+.pstat b{font-size:22px;color:var(--ink);}
+.glabel{font-size:13px;font-weight:700;color:var(--mut);letter-spacing:.05em;
+  margin:12px 0 2px;padding-top:10px;border-top:1px solid var(--line);}
+.glabel:first-of-type{margin-top:0;padding-top:0;border-top:none;}
+.funrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;}
+.funrow button{background:var(--card);border:1px solid var(--rule);border-radius:11px;
+  padding:10px 5px;font-size:14px;font-weight:700;line-height:1.45;
+  -webkit-tap-highlight-color:transparent;}
+.funrow button small{display:block;font-size:13px;font-weight:600;color:var(--mut);}
+.last{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;color:var(--ink2);}
+.last b{color:var(--ink);}
+.last button{margin-left:auto;background:none;border:1px solid var(--rule);border-radius:9px;
+  padding:6px 10px;font-size:13px;font-weight:600;color:var(--ink2);white-space:nowrap;}
+.evrow input{flex:1;min-width:0;font:inherit;font-size:14px;padding:6px 9px;
+  border:1px solid var(--rule);border-radius:8px;background:var(--card);color:var(--ink);}
+
+/* 分析 */
+.prog .nm2{width:104px;font-weight:700;font-size:14px;flex:none;}
+.pbar{position:relative;flex:1;height:10px;border-radius:6px;background:var(--line);}
+.pbar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--accent);}
+.pbar u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--mut);}
+.pval{font-weight:700;white-space:nowrap;font-size:14px;}
+.tlwrap{padding:14px;}
+.tl{display:flex;height:24px;border-radius:6px;overflow:hidden;border:1px solid var(--line);}
+.tl i{display:block;height:100%;}
+.tlx{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin-top:3px;}
+.wk .row .n{font-weight:700;}
+.wk .meter{flex:1;height:8px;border-radius:5px;background:var(--line);overflow:hidden;max-width:130px;}
+.wk .meter i{display:block;height:100%;border-radius:5px;background:currentColor;}
+
+details{margin-top:16px;}
+summary{font-size:14px;font-weight:700;color:var(--mut);cursor:pointer;
+  padding:4px 0;letter-spacing:.04em;list-style-position:inside;}
+details .card{margin-top:8px;}
+.setgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 0 4px;}
+.setgrid label{font-size:14px;font-weight:600;display:flex;flex-direction:column;gap:4px;color:var(--ink2);}
+.setgrid input{font:inherit;padding:9px 10px;border:1px solid var(--rule);border-radius:10px;
+  background:var(--card);color:var(--ink);width:100%;}
+.btn{padding:10px 14px;border:1px solid var(--rule);border-radius:10px;
+  background:var(--card);font-weight:700;font-size:14px;margin:10px 0;}
+.sync textarea{width:100%;min-height:72px;font:inherit;font-size:13px;padding:9px 10px;
+  border:1px solid var(--rule);border-radius:10px;background:var(--card);color:var(--ink);
+  margin-top:10px;}
+.copy{width:100%;margin-top:22px;padding:15px;border:none;border-radius:13px;
+  background:var(--accent);color:#fff;font-size:16px;font-weight:700;}
+.copy.done{background:var(--c2);}
+.note{font-size:13px;color:var(--mut);margin-top:10px;}
+</style>
+
+<div class="app">
+  <div class="hd"><h1>工数ログ</h1><span class="dt" id="today"></span></div>
+
+  <!-- ⏱ 計測 -->
+  <div class="panel on" id="tab-time">
+    <div class="now" id="now">
+      <div class="lbl" id="nowLbl">計測していません</div>
+      <div class="el" id="elapsed">0:00</div>
+      <div class="since" id="since">下のボタンを押すと開始</div>
+    </div>
+    <div id="cats"></div>
+    <div class="bar">
+      <button class="stop" id="stopBtn">停止</button>
+      <button id="undoBtn">直前を取消</button>
+    </div>
+
+    <h2>今日の計測記録</h2>
+    <div class="card" id="sessions"></div>
+
+    <h2>後から入力（押し忘れ・切り忘れ用）</h2>
+    <div class="card" style="padding:12px 14px">
+      <div class="add" style="margin-top:0">
+        <select id="mCat"></select>
+        <input id="mMin" type="number" inputmode="numeric" placeholder="分" min="5" step="5">
+        <button id="mAdd">今から遡って追加</button>
+      </div>
+      <div class="add">
+        <span class="lb">開始</span><input id="mFrom" type="time">
+        <span class="lb">終了</span><input id="mTo" type="time">
+        <button id="tAdd">時刻で追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ＋ 件数 -->
+  <div class="panel" id="tab-count">
+    <div class="inbox">
+      <input class="memo" id="memo" placeholder="案件名・メモ（任意）→ 次に押す +1 に付きます">
+      <div class="glabel">SES</div>
+      <div class="plusrow">
+        <button class="plus" id="propBtn">提案 +1</button>
+        <div class="pstat">今日 <b id="propToday">0</b>件<br>今月 <span id="propMonth">0</span>件</div>
+      </div>
+      <div class="funrow" id="funRow"></div>
+      <div class="glabel">エンド開拓</div>
+      <div class="funrow" id="funRow2"></div>
+      <div class="last" id="lastEv" hidden></div>
+    </div>
+
+    <h2>今日の件数</h2>
+    <div class="card" id="evList"></div>
+  </div>
+
+  <!-- 📊 分析 -->
+  <div class="panel" id="tab-ana">
+    <h2 style="margin-top:0" id="moTitle">今月の進捗<span class="sub" id="moDays"></span></h2>
+    <div class="card prog" id="month"></div>
+
+    <h2>今日のタイムライン</h2>
+    <div class="card tlwrap" id="tlCard"></div>
+
+    <h2 id="wkTitle">今週（火〜月）</h2>
+    <div class="card wk" id="week"></div>
+
+    <button class="copy" id="copyBtn">この内容をコピー</button>
+
+    <details>
+      <summary>今月の目標</summary>
+      <div class="card">
+        <div class="setgrid" id="setGrid"></div>
+        <button class="btn" id="setSave">目標を保存</button>
+      </div>
+    </details>
+
+    <details class="sync">
+      <summary>データ同期（PC⇄スマホ）</summary>
+      <div class="card">
+        <div style="padding-top:12px">
+          <button class="btn" id="expBtn" style="margin:0">この端末のデータを書き出す（コピー）</button>
+          <button class="btn" id="bkBtn" hidden>バックアップをファイルに保存</button>
+          <label class="btn" for="impFile" style="display:inline-block">ファイルから復元</label>
+          <input id="impFile" type="file" accept=".json,application/json" hidden>
+          <textarea id="impText" placeholder="もう一方の端末で書き出したデータをここに貼る"></textarea>
+          <button class="btn" id="impBtn">取り込む（統合・上書きしない）</button>
+          <div class="note" style="margin-top:0">計測を停止してから書き出してください。取り込み・復元は追加のみで、既存データは消えません。</div>
+        </div>
+      </div>
+    </details>
+
+    <div class="note">データはこの端末のブラウザに保存されます。コピーしてClaudeに貼ると日報データに入ります。</div>
+  </div>
+</div>
+
+<nav class="tabbar"><div class="tw">
+  <button class="on" data-p="tab-time">⏱ 計測</button>
+  <button data-p="tab-count">＋ 件数</button>
+  <button data-p="tab-ana">📊 分析</button>
+</div></nav>
+
+<script>
+// id は過去データとの互換のため施策IDのまま。ラベルだけ変更（2026-08-14）
+const CATS=[
+ {id:"S2607-02",nm:"提案",cls:"c1"},
+ {id:"S2607-03",nm:"面談以降",cls:"c3"},
+ {id:"S2607-01",nm:"エンド開拓",cls:"c2"},
+ {id:"none",nm:"施策外",cls:"c4"}
+];
+const EVS=[
+ {id:"prop",nm:"提案"},
+ {id:"meet",nm:"面談依頼"},
+ {id:"offer",nm:"オファー"},
+ {id:"deal",nm:"決定"},
+ {id:"esales",nm:"営業"},
+ {id:"eappo",nm:"アポ"},
+ {id:"ecase",nm:"案件化"}
+];
+const SES_EVS=["meet","offer","deal"];
+const END_EVS=["esales","eappo","ecase"];
+// 目標のキー: prop=提案件数, hours=提案投下時間(S2607-02の月間h), meet, offer, deal
+const KEY="kubo-timelog-v2";
+const OLDKEY="kubo-timelog-v1";
+const WD=["日","月","火","水","木","金","土"];
+let db={sessions:[],events:[],running:null,goals:{}};
+
+function load(){
+  try{const r=localStorage.getItem(KEY);if(r)db=JSON.parse(r);}catch(e){}
+  if(!db||typeof db!=="object")db={};
+  if(!Array.isArray(db.sessions))db.sessions=[];
+  if(!Array.isArray(db.events))db.events=[];
+  if(!db.goals)db.goals={};
+  if(db.running===undefined)db.running=null;
+  if(!db.migrated){
+    try{const r=localStorage.getItem(OLDKEY);
+      if(r){const od=JSON.parse(r);
+        if(Array.isArray(od.sessions)){
+          const seen=new Set(db.sessions.map(s=>s.start+"|"+s.cat));
+          od.sessions.forEach(s=>{if(s&&!seen.has(s.start+"|"+s.cat))db.sessions.push(s);});
+        }
+        if(od.running&&!db.running)db.running=od.running;
+      }}catch(e){}
+    db.migrated=true;
+    db.sessions.sort((a,b)=>a.start-b.start);
+    save();
+  }
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db));}catch(e){}}
+
+const pad=n=>String(n).padStart(2,"0");
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hm=ts=>{const d=new Date(ts);return pad(d.getHours())+":"+pad(d.getMinutes());};
+function dur(ms){const m=Math.round(ms/60000);return Math.floor(m/60)+":"+pad(m%60);}
+function hrs(ms){return (ms/3600000).toFixed(1);}
+function weekStart(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const back=(x.getDay()-2+7)%7;x.setDate(x.getDate()-back);return x;}
+function todayRange(){const d=new Date();const a=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  return [a.getTime(),a.getTime()+864e5];}
+function weekRange(){const a=weekStart(new Date());
+  return [a.getTime(),a.getTime()+7*864e5];}
+function monthRange(){const d=new Date();
+  return [new Date(d.getFullYear(),d.getMonth(),1).getTime(),
+          new Date(d.getFullYear(),d.getMonth()+1,1).getTime()];}
+function monthKey(){const d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1);}
+
+function totals(from,to){
+  const t={};CATS.forEach(c=>t[c.id]=0);
+  db.sessions.forEach(s=>{if(s.start>=from&&s.start<to&&t[s.cat]!==undefined)t[s.cat]+=s.ms;});
+  if(db.running&&db.running.start>=from&&db.running.start<to)
+    t[db.running.cat]+=Date.now()-db.running.start;
+  return t;
+}
+function evsIn(from,to,type){
+  return db.events.filter(e=>e.ts>=from&&e.ts<to&&(!type||e.t===type));
+}
+function evCounts(from,to){
+  const c={};EVS.forEach(e=>c[e.id]=0);
+  db.events.forEach(e=>{if(e.ts>=from&&e.ts<to&&c[e.t]!==undefined)c[e.t]++;});
+  return c;
+}
+
+function start(cat){
+  if(db.running){if(db.running.cat===cat){stop();return;}stop();}
+  db.running={cat:cat,start:Date.now()};save();render();
+}
+function stop(){
+  if(!db.running)return;
+  const ms=Date.now()-db.running.start;
+  if(ms>=30000)db.sessions.push({cat:db.running.cat,start:db.running.start,end:Date.now(),ms:ms});
+  db.running=null;save();render();
+}
+function undo(){
+  if(db.running){
+    const c=CATS.find(x=>x.id===db.running.cat);
+    if(!confirm("計測中の「"+(c?c.nm:"")+"」を記録せず破棄しますか？"))return;
+    db.running=null;save();render();return;
+  }
+  const [a,b]=todayRange();
+  for(let i=db.sessions.length-1;i>=0;i--){
+    const s=db.sessions[i];
+    if(s.start>=a&&s.start<b){
+      const c=CATS.find(x=>x.id===s.cat);
+      if(!confirm("直前の記録 "+hm(s.start)+"–"+hm(s.end)+" "+(c?c.nm:s.cat)+" を削除しますか？"))return;
+      db.sessions.splice(i,1);break;
+    }
+  }
+  save();render();
+}
+function addEvent(type){
+  const inp=document.getElementById("memo");
+  const nm=inp.value.trim();
+  const e={t:type,ts:Date.now()};
+  if(nm)e.nm=nm;
+  db.events.push(e);
+  inp.value="";
+  save();render();
+}
+function undoEvent(idx){
+  const e=db.events[idx];if(!e)return;
+  const ev=EVS.find(x=>x.id===e.t);
+  if(!confirm(hm(e.ts)+" の「"+(ev?ev.nm:e.t)+" +1"+(e.nm?"（"+e.nm+"）":"")+"」を取り消しますか？"))return;
+  db.events.splice(idx,1);save();render();
+}
+
+function render(){
+  const now=new Date();
+  document.getElementById("today").textContent=
+    (now.getMonth()+1)+"/"+now.getDate()+"（"+WD[now.getDay()]+"）";
+
+  const [ta,tb]=todayRange(), tt=totals(ta,tb);
+
+  // 計測ボタン（全幅の行）
+  const cs=document.getElementById("cats");
+  if(!cs.dataset.built){
+    cs.innerHTML=CATS.map(c=>
+      `<button class="catrow ${c.cls}" data-cat="${c.id}">
+         <i class="dot"></i><span class="nm">${c.nm}</span>
+         <span class="h" id="tot-${c.id}">0.0h</span>
+         <span class="go" id="go-${c.id}">▶ 押して開始</span>
+       </button>`).join("");
+    cs.dataset.built="1";
+    cs.querySelectorAll(".catrow").forEach(b=>b.onclick=()=>start(b.dataset.cat));
+    const sel=document.getElementById("mCat");
+    sel.innerHTML=CATS.map(c=>`<option value="${c.id}">${c.nm}</option>`).join("");
+  }
+  CATS.forEach(c=>{
+    const on=db.running&&db.running.cat===c.id;
+    document.getElementById("tot-"+c.id).textContent=hrs(tt[c.id])+"h";
+    document.getElementById("go-"+c.id).textContent=on?"⏸ 計測中・押すと停止":"▶ 押して開始";
+    cs.querySelector(`[data-cat="${c.id}"]`).classList.toggle("on",!!on);
+  });
+
+  const nowBox=document.getElementById("now");
+  if(db.running){
+    const c=CATS.find(x=>x.id===db.running.cat);
+    nowBox.classList.add("on");
+    document.getElementById("nowLbl").textContent=c?c.nm:db.running.cat;
+    document.getElementById("elapsed").textContent=dur(Date.now()-db.running.start);
+    document.getElementById("since").textContent=hm(db.running.start)+" から計測中";
+  }else{
+    nowBox.classList.remove("on");
+    document.getElementById("nowLbl").textContent="計測していません";
+    document.getElementById("elapsed").textContent=dur(Object.values(tt).reduce((a,b)=>a+b,0));
+    document.getElementById("since").textContent="今日の合計";
+  }
+
+  // 今日の計測記録
+  const list=db.sessions.filter(s=>s.start>=ta&&s.start<tb).sort((a,b)=>a.start-b.start);
+  const sBox=document.getElementById("sessions");
+  sBox.innerHTML=list.length?list.map(s=>{
+    const c=CATS.find(x=>x.id===s.cat)||{nm:s.cat,cls:"c4"};
+    return `<div class="row"><span class="t">${hm(s.start)}–${hm(s.end)}</span>
+      <span class="n">${c.nm}</span>
+      <span class="d">${dur(s.ms)}</span>
+      <button class="x" data-i="${db.sessions.indexOf(s)}">×</button></div>`;
+  }).join(""):`<div class="empty">まだありません</div>`;
+  sBox.querySelectorAll(".x").forEach(b=>b.onclick=()=>{
+    const s=db.sessions[+b.dataset.i];if(!s)return;
+    const c=CATS.find(x=>x.id===s.cat);
+    if(!confirm(hm(s.start)+"–"+hm(s.end)+" "+(c?c.nm:s.cat)+" を削除しますか？"))return;
+    db.sessions.splice(+b.dataset.i,1);save();render();});
+
+  // 件数タブ
+  const [ma,mb]=monthRange();
+  const tc=evCounts(ta,tb), mc=evCounts(ma,mb);
+  document.getElementById("propToday").textContent=tc.prop;
+  document.getElementById("propMonth").textContent=mc.prop;
+  const mkBtns=(el,ids)=>{
+    el.innerHTML=ids.map(id=>{const e=EVS.find(x=>x.id===id);
+      return `<button data-ev="${e.id}">${e.nm} +1<small>月 ${mc[e.id]}件</small></button>`;}).join("");
+    el.querySelectorAll("button").forEach(b=>b.onclick=()=>addEvent(b.dataset.ev));
+  };
+  mkBtns(document.getElementById("funRow"),SES_EVS);
+  mkBtns(document.getElementById("funRow2"),END_EVS);
+
+  const lastBox=document.getElementById("lastEv");
+  const todayEvs=evsIn(ta,tb);
+  if(todayEvs.length){
+    const e=todayEvs[todayEvs.length-1], gi=db.events.indexOf(e);
+    const ev=EVS.find(x=>x.id===e.t);
+    lastBox.hidden=false;
+    lastBox.innerHTML=
+      `<span>直近: ${hm(e.ts)} ${ev?ev.nm:e.t}${e.nm?` <b>「${esc(e.nm)}」</b>`:""}</span>
+       <button id="lastUndo">取消</button>`;
+    document.getElementById("lastUndo").onclick=()=>undoEvent(gi);
+  }else{lastBox.hidden=true;lastBox.innerHTML="";}
+
+  const eBox=document.getElementById("evList");
+  eBox.innerHTML=todayEvs.length?todayEvs.slice().reverse().map(e=>{
+    const gi=db.events.indexOf(e), ev=EVS.find(x=>x.id===e.t);
+    return `<div class="row evrow"><span class="t">${hm(e.ts)}</span>
+      <span class="n" style="flex:none">${ev?ev.nm:e.t}</span>
+      <input data-gi="${gi}" placeholder="案件名・メモ（任意）" value="${esc(e.nm||"")}">
+      <button class="x" data-gi="${gi}">×</button></div>`;
+  }).join(""):`<div class="empty">まだありません</div>`;
+  eBox.querySelectorAll("input").forEach(inp=>inp.onchange=()=>{
+    const e=db.events[+inp.dataset.gi];if(!e)return;
+    const v=inp.value.trim();if(v)e.nm=v;else delete e.nm;save();});
+  eBox.querySelectorAll(".x").forEach(b=>b.onclick=()=>undoEvent(+b.dataset.gi));
+
+  // 分析タブ: 今月の進捗
+  const mk=monthKey(), goal=db.goals[mk];
+  const dim=Math.round((mb-ma)/864e5), day=now.getDate();
+  document.getElementById("moTitle").firstChild.textContent=(now.getMonth()+1)+"月の進捗";
+  document.getElementById("moDays").textContent=day+"/"+dim+"日";
+  const mt=totals(ma,mb);
+  const propHours=mt["S2607-02"]/3600000;
+  const rows=[
+    {lb:"SES"},
+    {nm:"提案",val:mc.prop,goal:goal?goal.prop:null,fmt:v=>v+"件"},
+    {nm:"提案投下時間",val:propHours,goal:goal?goal.hours:null,fmt:v=>v.toFixed(1)+"h"},
+    {nm:"面談依頼",val:mc.meet,goal:goal?goal.meet:null,fmt:v=>v+"件"},
+    {nm:"オファー",val:mc.offer,goal:goal?goal.offer:null,fmt:v=>v+"件"},
+    {nm:"決定",val:mc.deal,goal:goal?goal.deal:null,fmt:v=>v+"件"},
+    {lb:"エンド開拓"},
+    {nm:"営業",val:mc.esales,goal:goal?goal.esales:null,fmt:v=>v+"件"},
+    {nm:"アポ",val:mc.eappo,goal:goal?goal.eappo:null,fmt:v=>v+"件"},
+    {nm:"案件化",val:mc.ecase,goal:goal?goal.ecase:null,fmt:v=>v+"件"}
+  ];
+  const pace=Math.min(100,100*day/dim);
+  document.getElementById("month").innerHTML=goal?
+    rows.map(r=>{
+      if(r.lb)return `<div class="row"><span class="t" style="font-weight:700">${r.lb}</span></div>`;
+      const has=r.goal!=null&&r.goal>0;
+      const pct=has?Math.min(100,100*r.val/r.goal):0;
+      return `<div class="row">
+        <span class="nm2">${r.nm}</span>
+        <span class="pbar"><i style="width:${pct}%"></i><u style="left:${pace}%"></u></span>
+        <span class="pval">${r.fmt(r.val)}${has?" / "+r.fmt(r.goal):""}</span>
+      </div>`;
+    }).join("")+
+    `<div class="row"><span class="t">縦線＝今日までの日割りペース（${Math.round(pace)}%）</span></div>`
+    :`<div class="empty">今月の目標が未設定です。下の「今月の目標」から入力してください。</div>`;
+
+  // 分析タブ: 今日のタイムライン
+  renderTimeline(ta,tb);
+
+  // 分析タブ: 今週
+  const [wa,wb]=weekRange(), wt=totals(wa,wb), wc=evCounts(wa,wb);
+  const ws=new Date(wa), we=new Date(wa+6*864e5);
+  document.getElementById("wkTitle").textContent=
+    `今週 ${ws.getMonth()+1}/${ws.getDate()}（火）〜${we.getMonth()+1}/${we.getDate()}（月）`;
+  const wmax=Math.max(1,...CATS.map(c=>wt[c.id]));
+  const wsum=CATS.reduce((a,c)=>a+wt[c.id],0);
+  document.getElementById("week").innerHTML=
+    CATS.map(c=>`<div class="row ${c.cls}">
+      <span class="n" style="color:var(--ink)">${c.nm}</span>
+      <span class="meter"><i style="width:${Math.round(100*wt[c.id]/wmax)}%"></i></span>
+      <span class="d" style="color:var(--ink)">${hrs(wt[c.id])}h</span>
+      <span class="t">${wsum?Math.round(100*wt[c.id]/wsum):0}%</span></div>`).join("")+
+    `<div class="row"><span class="n">合計</span><span class="d">${hrs(wsum)}h</span></div>`+
+    `<div class="row"><span class="n">SES</span><span class="t">提案 ${wc.prop} ・ 面談依頼 ${wc.meet} ・ オファー ${wc.offer} ・ 決定 ${wc.deal}</span></div>`+
+    `<div class="row"><span class="n">エンド開拓</span><span class="t">営業 ${wc.esales} ・ アポ ${wc.eappo} ・ 案件化 ${wc.ecase}</span></div>`;
+
+  renderSettings();
+}
+
+function renderTimeline(ta,tb){
+  const box=document.getElementById("tlCard");
+  const list=db.sessions.filter(s=>s.start>=ta&&s.start<tb)
+    .map(s=>({cat:s.cat,start:s.start,end:s.end})).sort((a,b)=>a.start-b.start);
+  if(db.running&&db.running.start>=ta&&db.running.start<tb)
+    list.push({cat:db.running.cat,start:db.running.start,end:Date.now()});
+  if(!list.length){box.innerHTML=`<div class="empty" style="padding:0">まだありません</div>`;return;}
+  const H=3600000;
+  const a=ta+Math.floor((Math.min(...list.map(s=>s.start))-ta)/H)*H;
+  let b=ta+Math.ceil((Math.max(...list.map(s=>s.end))-ta)/H)*H;
+  if(b<=a)b=a+H;
+  const segs=[];let cur=a;
+  list.forEach(s=>{
+    const st=Math.max(s.start,cur), en=Math.max(st,Math.min(s.end,b));
+    if(st>cur)segs.push({w:st-cur,cls:null});
+    if(en>st){const c=CATS.find(x=>x.id===s.cat);
+      segs.push({w:en-st,cls:c?c.cls:"c4"});cur=en;}
+  });
+  if(cur<b)segs.push({w:b-cur,cls:null});
+  box.innerHTML=
+    `<div class="tl">`+segs.map(s=>
+      `<i style="flex:${Math.max(1,Math.round(s.w/60000))};background:${s.cls?`var(--${s.cls.replace("c","c")})`:"var(--line)"}"></i>`
+    ).join("")+`</div>
+    <div class="tlx"><span>${hm(a)}</span><span>${hm((a+b)/2)}</span><span>${hm(b)}</span></div>`;
+}
+
+let setBuiltFor="";
+function renderSettings(){
+  const mk=monthKey();
+  if(setBuiltFor===mk)return;
+  setBuiltFor=mk;
+  const goal=db.goals[mk]||{};
+  const defs=[["prop","提案（件）"],["hours","提案投下時間（h）"],["meet","面談依頼（件）"],["offer","オファー（件）"],["deal","決定（件）"],["esales","営業（件）"],["eappo","アポ（件）"],["ecase","案件化（件）"]];
+  document.getElementById("setGrid").innerHTML=defs.map(([k,l])=>
+    `<label>${l}<input id="goal-${k}" type="number" inputmode="numeric" min="0" value="${goal[k]!=null?goal[k]:""}"></label>`).join("");
+}
+document.getElementById("setSave").onclick=()=>{
+  const mk=monthKey(), g={u:Date.now()};
+  let any=false;
+  ["prop","hours","meet","offer","deal","esales","eappo","ecase"].forEach(k=>{
+    const v=parseFloat(document.getElementById("goal-"+k).value);
+    if(!isNaN(v)&&v>=0){g[k]=v;any=true;}
+  });
+  if(any)db.goals[mk]=g;else delete db.goals[mk];
+  save();setBuiltFor="";render();
+};
+
+function copyText(){
+  const now=new Date();
+  const [ta,tb]=todayRange(), tt=totals(ta,tb), tc=evCounts(ta,tb);
+  const list=db.sessions.filter(s=>s.start>=ta&&s.start<tb).sort((a,b)=>a.start-b.start);
+  const sum=Object.values(tt).reduce((a,b)=>a+b,0);
+  let t=`■工数 ${now.getMonth()+1}/${now.getDate()}（${WD[now.getDay()]}）合計 ${hrs(sum)}h\n`;
+  CATS.forEach(c=>{if(tt[c.id]>0)t+=`・${c.nm} ${hrs(tt[c.id])}h\n`;});
+  if(list.length){
+    t+="セッション:\n";
+    list.forEach(s=>{const c=CATS.find(x=>x.id===s.cat)||{nm:s.cat};
+      t+=`  ${hm(s.start)}–${hm(s.end)} ${c.nm} ${dur(s.ms)}\n`;});
+  }
+  t+=`件数(今日) SES: 提案 ${tc.prop} ・ 面談依頼 ${tc.meet} ・ オファー ${tc.offer} ・ 決定 ${tc.deal}\n`;
+  t+=`件数(今日) エンド開拓: 営業 ${tc.esales} ・ アポ ${tc.eappo} ・ 案件化 ${tc.ecase}\n`;
+  const named=evsIn(ta,tb).filter(e=>e.nm);
+  if(named.length)t+=`  メモ: ${named.map(e=>{
+    const ev=EVS.find(x=>x.id===e.t);
+    return (e.t==="prop"?"":(ev?ev.nm:e.t)+" ")+e.nm;
+  }).join(" / ")}\n`;
+  const [ma,mb]=monthRange(), mc=evCounts(ma,mb), mt=totals(ma,mb);
+  const mk=monthKey(), goal=db.goals[mk]||{};
+  const gs=(v,g,u)=>g!=null?`${v}/${g}${u}`:`${v}${u}`;
+  t+=`月累計 SES: 提案 ${gs(mc.prop,goal.prop,"件")} ・ 投下時間 ${gs(hrs(mt["S2607-02"]),goal.hours,"h")} ・ 面談依頼 ${gs(mc.meet,goal.meet,"")} ・ オファー ${gs(mc.offer,goal.offer,"")} ・ 決定 ${gs(mc.deal,goal.deal,"")}\n`;
+  t+=`月累計 エンド開拓: 営業 ${gs(mc.esales,goal.esales,"")} ・ アポ ${gs(mc.eappo,goal.eappo,"")} ・ 案件化 ${gs(mc.ecase,goal.ecase,"")}\n`;
+  const [wa,wb]=weekRange(), wt=totals(wa,wb), wc=evCounts(wa,wb);
+  const wsum=CATS.reduce((a,c)=>a+wt[c.id],0);
+  t+=`今週累計 ${hrs(wsum)}h（`+CATS.filter(c=>wt[c.id]>0)
+      .map(c=>`${c.nm} ${hrs(wt[c.id])}h`).join(" / ")+`）\n`;
+  t+=`今週件数 SES: 提案 ${wc.prop} ・ 面談依頼 ${wc.meet} ・ オファー ${wc.offer} ・ 決定 ${wc.deal}\n`;
+  t+=`今週件数 エンド開拓: 営業 ${wc.esales} ・ アポ ${wc.eappo} ・ 案件化 ${wc.ecase}`;
+  return t;
+}
+
+async function toClipboard(txt){
+  try{await navigator.clipboard.writeText(txt);}
+  catch(e){const ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);
+    ta.select();try{document.execCommand("copy");}catch(_){}ta.remove();}
+}
+
+document.getElementById("stopBtn").onclick=stop;
+document.getElementById("undoBtn").onclick=undo;
+document.getElementById("propBtn").onclick=()=>addEvent("prop");
+document.getElementById("mAdd").onclick=()=>{
+  const min=parseInt(document.getElementById("mMin").value,10);
+  if(!min||min<1)return;
+  const cat=document.getElementById("mCat").value, ms=min*60000, end=Date.now();
+  db.sessions.push({cat:cat,start:end-ms,end:end,ms:ms});
+  document.getElementById("mMin").value="";save();render();
+};
+document.getElementById("tAdd").onclick=()=>{
+  const f=document.getElementById("mFrom").value, to=document.getElementById("mTo").value;
+  if(!f||!to){alert("開始と終了の時刻を両方入れてください。");return;}
+  const [ta]=todayRange();
+  const p=v=>{const [h,m]=v.split(":").map(Number);return ta+(h*60+m)*60000;};
+  const s=p(f), e=p(to);
+  if(e<=s){alert("終了は開始より後の時刻にしてください。");return;}
+  const cat=document.getElementById("mCat").value;
+  db.sessions.push({cat:cat,start:s,end:e,ms:e-s});
+  db.sessions.sort((a,b)=>a.start-b.start);
+  document.getElementById("mFrom").value="";document.getElementById("mTo").value="";
+  save();render();
+};
+document.getElementById("copyBtn").onclick=async()=>{
+  const btn=document.getElementById("copyBtn");
+  await toClipboard(copyText());
+  btn.textContent="コピーしました";btn.classList.add("done");
+  setTimeout(()=>{btn.textContent="この内容をコピー";btn.classList.remove("done");},1600);
+};
+document.getElementById("expBtn").onclick=async()=>{
+  const btn=document.getElementById("expBtn");
+  await toClipboard(JSON.stringify({v:2,exported:Date.now(),
+    sessions:db.sessions,events:db.events,goals:db.goals}));
+  btn.textContent="コピーしました";
+  setTimeout(()=>{btn.textContent="この端末のデータを書き出す（コピー）";},1600);
+};
+function mergeIncoming(inc){
+  if(!inc||typeof inc!=="object")return null;
+  const sk=new Set(db.sessions.map(s=>s.start+"|"+s.cat));
+  let ns=0;
+  (Array.isArray(inc.sessions)?inc.sessions:[]).forEach(s=>{
+    if(s&&typeof s.start==="number"&&typeof s.ms==="number"&&!sk.has(s.start+"|"+s.cat)){
+      db.sessions.push({cat:s.cat,start:s.start,end:s.end,ms:s.ms});
+      sk.add(s.start+"|"+s.cat);ns++;}});
+  const ek=new Map(db.events.map(e=>[e.ts+"|"+e.t,e]));
+  let ne=0;
+  (Array.isArray(inc.events)?inc.events:[]).forEach(e=>{
+    if(e&&typeof e.ts==="number"&&typeof e.t==="string"){
+      const k=e.ts+"|"+e.t, ex=ek.get(k);
+      if(!ex){const o={t:e.t,ts:e.ts};if(e.nm)o.nm=String(e.nm);
+        db.events.push(o);ek.set(k,o);ne++;}
+      else if(e.nm&&!ex.nm)ex.nm=String(e.nm);}});
+  Object.entries(inc.goals&&typeof inc.goals==="object"?inc.goals:{}).forEach(([m,g])=>{
+    if(!g||typeof g!=="object")return;
+    const cur=db.goals[m];
+    if(!cur||(g.u||0)>(cur.u||0))db.goals[m]=g;});
+  db.sessions.sort((a,b)=>a.start-b.start);
+  db.events.sort((a,b)=>a.ts-b.ts);
+  save();setBuiltFor="";render();
+  return {ns:ns,ne:ne};
+}
+document.getElementById("impBtn").onclick=()=>{
+  const txt=document.getElementById("impText").value.trim();
+  if(!txt)return;
+  let inc;try{inc=JSON.parse(txt);}catch(e){alert("データを読み取れませんでした。書き出したものをそのまま貼ってください。");return;}
+  const r=mergeIncoming(inc);
+  if(!r){alert("データを読み取れませんでした。");return;}
+  document.getElementById("impText").value="";
+  alert(`取り込みました: 計測 +${r.ns} 件 / 件数イベント +${r.ne} 件`);
+};
+document.getElementById("impFile").onchange=ev=>{
+  const f=ev.target.files&&ev.target.files[0];
+  ev.target.value="";
+  if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    let inc;try{inc=JSON.parse(String(rd.result));}
+    catch(e){alert("このファイルを読み取れませんでした。工数ログのバックアップファイルを選んでください。");return;}
+    const r=mergeIncoming(inc);
+    if(!r){alert("このファイルを読み取れませんでした。");return;}
+    alert(`復元しました: 計測 +${r.ns} 件 / 件数イベント +${r.ne} 件`);
+  };
+  rd.onerror=()=>alert("ファイルを開けませんでした。");
+  rd.readAsText(f);
+};
+
+// バックアップをファイルに保存（Artifact内は downloads 機能、通常ブラウザは標準ダウンロード）
+(async()=>{
+  const btn=document.getElementById("bkBtn");
+  const bkName=()=>{const d=new Date();
+    return `timelog-backup-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.json`;};
+  const bkBody=()=>JSON.stringify({v:2,exported:Date.now(),
+    sessions:db.sessions,events:db.events,goals:db.goals});
+  const dl=window.claude&&window.claude.use?await window.claude.use("downloads"):null;
+  if(!dl){
+    if(!("download" in document.createElement("a")))return;
+    btn.hidden=false;
+    btn.onclick=()=>{
+      const u=URL.createObjectURL(new Blob([bkBody()],{type:"application/json"}));
+      const a=document.createElement("a");a.href=u;a.download=bkName();
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(u),4000);
+      btn.textContent="保存しました";
+      setTimeout(()=>{btn.textContent="バックアップをファイルに保存";},1600);
+    };
+    return;
+  }
+  btn.hidden=false;
+  btn.onclick=async()=>{
+    btn.disabled=true;
+    try{
+      await dl.save({filename:bkName(),data:bkBody()});
+      btn.textContent="保存しました";
+      setTimeout(()=>{btn.textContent="バックアップをファイルに保存";},1600);
+    }catch(e){
+      const c=e&&e.code;
+      if(c==="declined"){}
+      else if(c==="rate_limited")alert("少し時間をおいてからもう一度押してください。");
+      else if(c==="too_large")alert("データが大きすぎて保存できません。書き出し（コピー）を使ってください。");
+      else{btn.hidden=true;alert("この画面ではファイル保存が使えません。書き出し（コピー）を使ってください。");}
+    }finally{btn.disabled=false;}
+  };
+})();
+
+// タブ切替（下部固定バー）
+document.querySelectorAll(".tabbar button").forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll(".tabbar button").forEach(x=>x.classList.remove("on"));
+    document.querySelectorAll(".panel").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    document.getElementById(b.dataset.p).classList.add("on");
+    window.scrollTo(0,0);
+  };
+});
+
+// 1秒ごとの更新は計測中の表示だけ差し替える（入力欄のフォーカスを奪わないため全再描画しない）
+function tick(){
+  if(!db.running)return;
+  document.getElementById("elapsed").textContent=dur(Date.now()-db.running.start);
+  const [ta,tb]=todayRange(), tt=totals(ta,tb);
+  const el=document.getElementById("tot-"+db.running.cat);
+  if(el)el.textContent=hrs(tt[db.running.cat])+"h";
+}
+
+load();render();
+setInterval(tick,1000);
+if("serviceWorker" in navigator&&location.hostname.endsWith("github.io")){
+  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
+</script>
