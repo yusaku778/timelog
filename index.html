@@ -315,6 +315,11 @@ const END_EVS=["esales","eappo","ecase"];
 const KEY="kubo-timelog-v2";
 const OLDKEY="kubo-timelog-v1";
 const WD=["日","月","火","水","木","金","土"];
+// 1日の区切りは朝5時。深夜0〜5時の記録・日報は「前日」として扱う
+// （日付を跨いでから日報を書く運用のため。変えたい場合はこの数字だけ直す）
+const DAY_START=5;
+// 表示・集計用の「いまの作業日」（実時刻から5時間引いた日付）
+function workNow(){return new Date(Date.now()-DAY_START*36e5);}
 let db={sessions:[],events:[],running:null,goals:{}};
 
 function load(){
@@ -348,15 +353,16 @@ function dur(ms){const m=Math.round(ms/60000);return Math.floor(m/60)+":"+pad(m%
 function hrs(ms){return (ms/3600000).toFixed(1);}
 function weekStart(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
   const back=(x.getDay()-2+7)%7;x.setDate(x.getDate()-back);return x;}
-function todayRange(){const d=new Date();const a=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-  return [a.getTime(),a.getTime()+864e5];}
-function weekRange(){const a=weekStart(new Date());
-  return [a.getTime(),a.getTime()+7*864e5];}
-function monthRange(){const d=new Date();
-  return [new Date(d.getFullYear(),d.getMonth(),1).getTime(),
-          new Date(d.getFullYear(),d.getMonth()+1,1).getTime()];}
-function monthKey(){const d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1);}
-function dayKey(ts){const d=new Date(ts);
+function todayRange(){const d=workNow();
+  const a=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()+DAY_START*36e5;
+  return [a,a+864e5];}
+function weekRange(){const a=weekStart(workNow()).getTime()+DAY_START*36e5;
+  return [a,a+7*864e5];}
+function monthRange(){const d=workNow();
+  return [new Date(d.getFullYear(),d.getMonth(),1).getTime()+DAY_START*36e5,
+          new Date(d.getFullYear(),d.getMonth()+1,1).getTime()+DAY_START*36e5];}
+function monthKey(){const d=workNow();return d.getFullYear()+"-"+pad(d.getMonth()+1);}
+function dayKey(ts){const d=new Date(ts-DAY_START*36e5);
   return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
 function noteOf(ts){const n=db.notes[dayKey(ts)];return n&&n.t?n.t:"";}
 
@@ -420,7 +426,7 @@ function undoEvent(idx){
 }
 
 function render(){
-  const now=new Date();
+  const now=workNow();
   document.getElementById("today").textContent=
     (now.getMonth()+1)+"/"+now.getDate()+"（"+WD[now.getDay()]+"）";
 
@@ -696,7 +702,7 @@ document.getElementById("setSave").onclick=()=>{
 };
 
 function copyText(){
-  const now=new Date();
+  const now=workNow();
   const [ta,tb]=todayRange(), tt=totals(ta,tb), tc=evCounts(ta,tb);
   const list=db.sessions.filter(s=>s.start>=ta&&s.start<tb).sort((a,b)=>a.start-b.start);
   const sum=Object.values(tt).reduce((a,b)=>a+b,0);
@@ -754,7 +760,9 @@ document.getElementById("tAdd").onclick=()=>{
   let ta;
   if(dv){const [Y,M,D]=dv.split("-").map(Number);ta=new Date(Y,M-1,D).getTime();}
   else ta=todayRange()[0];
-  const p=v=>{const [h,m]=v.split(":").map(Number);return ta+(h*60+m)*60000;};
+  // 0:00〜4:59 は「選んだ日の深夜」= 暦の上では翌日として扱う
+  const p=v=>{const [h,m]=v.split(":").map(Number);
+    return ta+((h<DAY_START?h+24:h)*60+m)*60000;};
   const s=p(f), e=p(to);
   if(e<=s){alert("終了は開始より後の時刻にしてください。");return;}
   const cat=document.getElementById("mCat").value;
@@ -911,7 +919,7 @@ function tick(){
 
 // 日付欄の初期値（今日）と件数種別セレクト
 (()=>{
-  const d=new Date();
+  const d=workNow();
   const today=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
   document.getElementById("mDate").value=today;
   document.getElementById("eDate").value=today;
