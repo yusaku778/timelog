@@ -28,6 +28,9 @@
   --shadow:none;
 }
 *{box-sizing:border-box;}
+/* 押下フィードバック: 押した瞬間に縮む＋薄くなる（ライト/ダーク両対応） */
+button:active,.hbtn:active,label.btn:active{
+  transform:scale(.96);opacity:.7;transition:none;}
 body{background:var(--paper);margin:0;}
 .app{font-family:system-ui,-apple-system,"Segoe UI","Hiragino Sans","Yu Gothic UI",sans-serif;
   color:var(--ink);max-width:560px;margin:0 auto;padding:16px 14px 96px;
@@ -106,7 +109,6 @@ h2 .sub{margin-left:auto;font-weight:600;}
 .plus{flex:1;padding:20px 10px;border:none;border-radius:12px;
   background:var(--accent);color:#fff;font-size:20px;font-weight:800;
   -webkit-tap-highlight-color:transparent;}
-.plus:active{opacity:.85;}
 .pstat{text-align:right;font-size:14px;color:var(--ink2);line-height:1.5;white-space:nowrap;}
 .pstat b{font-size:22px;color:var(--ink);}
 .glabel{font-size:13px;font-weight:700;color:var(--mut);letter-spacing:.05em;
@@ -916,6 +918,8 @@ function tick(){
   document.getElementById("eKind").innerHTML=
     EVS.map(e=>`<option value="${e.id}">${e.nm}</option>`).join("");
 })();
+
+document.addEventListener("touchstart",function(){},{passive:true});
 
 load();render();
 setInterval(tick,1000);
