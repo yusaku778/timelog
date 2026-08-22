@@ -254,8 +254,9 @@ details .card{margin-top:8px;}
     <h2 id="wkTitle">今週（火〜月）</h2>
     <div class="card wk" id="week"></div>
 
-    <h2>履歴（過去7日）</h2>
+    <h2>履歴（過去30日）</h2>
     <div class="card" id="hist"></div>
+    <button class="btn" id="histCopy">履歴をコピー（30日・表形式）</button>
 
     <button class="copy" id="copyBtn">この内容をコピー</button>
 
@@ -585,7 +586,7 @@ function renderHistory(){
   const d0=new Date();
   const base=new Date(d0.getFullYear(),d0.getMonth(),d0.getDate()).getTime();
   let h="";
-  for(let i=0;i<7;i++){
+  for(let i=0;i<31;i++){
     const a=base-i*864e5, b=a+864e5;
     const t=totals(a,b), c=evCounts(a,b);
     const sum=Object.values(t).reduce((x,y)=>x+y,0);
@@ -737,6 +738,23 @@ function copyText(){
   return t;
 }
 
+// 過去31日分を日ごとの表（タブ区切り）にする。記録の無い日も0で出す＝突合用
+function historyText(){
+  const base=todayRange()[0];
+  const lines=[["日付","曜日","合計h",...CATS.map(c=>c.nm+"h"),...EVS.map(e=>e.nm),"メモ"].join("\t")];
+  for(let i=30;i>=0;i--){
+    const a=base-i*864e5, b=a+864e5;
+    const t=totals(a,b), c=evCounts(a,b), d=new Date(a);
+    const sum=Object.values(t).reduce((x,y)=>x+y,0);
+    lines.push([
+      `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`, WD[d.getDay()], hrs(sum),
+      ...CATS.map(x=>hrs(t[x.id])), ...EVS.map(e=>c[e.id]),
+      noteOf(a).replace(/[\t\n]+/g," ")
+    ].join("\t"));
+  }
+  return lines.join("\n");
+}
+
 async function toClipboard(txt){
   try{await navigator.clipboard.writeText(txt);}
   catch(e){const ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);
@@ -791,6 +809,12 @@ document.getElementById("eAdd").onclick=()=>{
   save();render();
   const ev=EVS.find(x=>x.id===kind);
   alert(`${M}/${D} に「${ev?ev.nm:kind}」を ${added}件 追加しました。`);
+};
+document.getElementById("histCopy").onclick=async()=>{
+  const btn=document.getElementById("histCopy");
+  await toClipboard(historyText());
+  btn.textContent="コピーしました";
+  setTimeout(()=>{btn.textContent="履歴をコピー（30日・表形式）";},1600);
 };
 document.getElementById("copyBtn").onclick=async()=>{
   const btn=document.getElementById("copyBtn");
