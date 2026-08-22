@@ -140,11 +140,15 @@ h2 .sub{margin-left:auto;font-weight:600;}
 .wk .meter{flex:1;height:8px;border-radius:5px;background:var(--line);overflow:hidden;max-width:130px;}
 .wk .meter i{display:block;height:100%;border-radius:5px;background:currentColor;}
 .hline{flex-basis:100%;font-size:14px;color:var(--ink2);line-height:1.5;}
+/* 週の合計行: 上下の太線で囲んだ帯＋左に四角マーク。一目で「合計」と分かるように */
 .wkhdr{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
-  border-top:3px solid var(--ink);margin-top:6px;padding:10px 0 4px;}
-.wkhdr .wn{font-size:15px;font-weight:800;}
-.wkhdr .ws{margin-left:auto;font-size:14px;font-weight:700;color:var(--ink2);white-space:nowrap;}
-#hist .wkhdr:first-child{border-top:none;margin-top:0;padding-top:8px;}
+  border-top:3px solid var(--ink);border-bottom:3px solid var(--ink);
+  margin:12px -14px 0;padding:9px 14px;
+  background:color-mix(in srgb,var(--accent) 10%,var(--card));}
+.wkhdr .wn{font-size:15px;font-weight:800;display:flex;align-items:center;gap:9px;}
+.wkhdr .wn::before{content:"";width:12px;height:12px;border-radius:2px;background:var(--accent);flex:none;}
+.wkhdr .ws{margin-left:auto;font-size:15px;font-weight:800;white-space:nowrap;}
+#hist .wkhdr:first-child{margin-top:0;}
 .hbtn{background:none;border:1px solid var(--rule);border-radius:9px;
   padding:5px 10px;font-size:13px;font-weight:600;color:var(--ink2);white-space:nowrap;}
 .hdet{flex-basis:100%;border-top:1px solid var(--line);margin-top:8px;}
@@ -609,7 +613,7 @@ function renderHistory(){
       const we=new Date(wa+6*864e5);
       h+=`<div class="wkhdr">
         <span class="wn">${wsD.getMonth()+1}/${wsD.getDate()}（土）〜${we.getMonth()+1}/${we.getDate()}（金）</span>
-        <span class="ws">${hrs(wsum)}h ・ 提案 ${wc.prop}</span>
+        <span class="ws">週計 ${hrs(wsum)}h ・ 提案 ${wc.prop}</span>
       </div>`;
     }
     const hours=CATS.filter(cat=>t[cat.id]>0)
