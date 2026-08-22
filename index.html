@@ -140,6 +140,11 @@ h2 .sub{margin-left:auto;font-weight:600;}
 .wk .meter{flex:1;height:8px;border-radius:5px;background:var(--line);overflow:hidden;max-width:130px;}
 .wk .meter i{display:block;height:100%;border-radius:5px;background:currentColor;}
 .hline{flex-basis:100%;font-size:14px;color:var(--ink2);line-height:1.5;}
+.wkhdr{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  border-top:3px solid var(--ink);margin-top:6px;padding:10px 0 4px;}
+.wkhdr .wn{font-size:15px;font-weight:800;}
+.wkhdr .ws{margin-left:auto;font-size:14px;font-weight:700;color:var(--ink2);white-space:nowrap;}
+#hist .wkhdr:first-child{border-top:none;margin-top:0;padding-top:8px;}
 .hbtn{background:none;border:1px solid var(--rule);border-radius:9px;
   padding:5px 10px;font-size:13px;font-weight:600;color:var(--ink2);white-space:nowrap;}
 .hdet{flex-basis:100%;border-top:1px solid var(--line);margin-top:8px;}
@@ -251,7 +256,7 @@ details .card{margin-top:8px;}
     <h2>今日のタイムライン</h2>
     <div class="card tlwrap" id="tlCard"></div>
 
-    <h2 id="wkTitle">今週（火〜月）</h2>
+    <h2 id="wkTitle">今週（土〜金）</h2>
     <div class="card wk" id="week"></div>
 
     <h2>履歴（過去30日）</h2>
@@ -352,8 +357,9 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 const hm=ts=>{const d=new Date(ts);return pad(d.getHours())+":"+pad(d.getMinutes());};
 function dur(ms){const m=Math.round(ms/60000);return Math.floor(m/60)+":"+pad(m%60);}
 function hrs(ms){return (ms/3600000).toFixed(1);}
+// 週は土曜はじまり・金曜おわり（毎週土曜の定例に合わせる）
 function weekStart(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-  const back=(x.getDay()-2+7)%7;x.setDate(x.getDate()-back);return x;}
+  const back=(x.getDay()+1)%7;x.setDate(x.getDate()-back);return x;}
 function todayRange(){const d=workNow();
   const a=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()+DAY_START*36e5;
   return [a,a+864e5];}
@@ -563,7 +569,7 @@ function render(){
   const [wa,wb]=weekRange(), wt=totals(wa,wb), wc=evCounts(wa,wb);
   const ws=new Date(wa), we=new Date(wa+6*864e5);
   document.getElementById("wkTitle").textContent=
-    `今週 ${ws.getMonth()+1}/${ws.getDate()}（火）〜${we.getMonth()+1}/${we.getDate()}（月）`;
+    `今週 ${ws.getMonth()+1}/${ws.getDate()}（土）〜${we.getMonth()+1}/${we.getDate()}（金）`;
   const wmax=Math.max(1,...CATS.map(c=>wt[c.id]));
   const wsum=CATS.reduce((a,c)=>a+wt[c.id],0);
   document.getElementById("week").innerHTML=
@@ -583,9 +589,8 @@ function render(){
 // 分析タブ: 過去7日の履歴（今日を含む・記録のある日だけ）
 function renderHistory(){
   const box=document.getElementById("hist");
-  const d0=new Date();
-  const base=new Date(d0.getFullYear(),d0.getMonth(),d0.getDate()).getTime();
-  let h="";
+  const base=todayRange()[0];   // 朝5時区切りの「今日」の開始
+  let h="", lastWk=null;
   for(let i=0;i<31;i++){
     const a=base-i*864e5, b=a+864e5;
     const t=totals(a,b), c=evCounts(a,b);
@@ -594,6 +599,19 @@ function renderHistory(){
     // 記録が無くてもメモがあれば残す（メモが隠れて読めなくなるのを防ぐ）
     if(sum<=0&&!EVS.some(e=>c[e.id]>0)&&!note&&i>0)continue;
     const d=new Date(a);
+    // 週（土〜金）が変わったら区切り行を入れる。週の合計も添える
+    const wsD=weekStart(new Date(a-DAY_START*36e5));
+    const wa=wsD.getTime()+DAY_START*36e5, wb=wa+7*864e5;
+    if(wa!==lastWk){
+      lastWk=wa;
+      const wt=totals(wa,wb), wc=evCounts(wa,wb);
+      const wsum=Object.values(wt).reduce((x,y)=>x+y,0);
+      const we=new Date(wa+6*864e5);
+      h+=`<div class="wkhdr">
+        <span class="wn">${wsD.getMonth()+1}/${wsD.getDate()}（土）〜${we.getMonth()+1}/${we.getDate()}（金）</span>
+        <span class="ws">${hrs(wsum)}h ・ 提案 ${wc.prop}</span>
+      </div>`;
+    }
     const hours=CATS.filter(cat=>t[cat.id]>0)
       .map(cat=>`${cat.nm} ${hrs(t[cat.id])}h`).join(" ・ ");
     const cnts=EVS.filter(e=>c[e.id]>0)
