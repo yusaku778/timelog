@@ -152,10 +152,10 @@ h2 .sub{margin-left:auto;font-weight:600;}
 .hbtn{background:none;border:1px solid var(--rule);border-radius:9px;
   padding:5px 10px;font-size:13px;font-weight:600;color:var(--ink2);white-space:nowrap;}
 .hdet{flex-basis:100%;border-top:1px solid var(--line);margin-top:8px;}
-.hnote{flex-basis:100%;font-size:14px;line-height:1.5;color:var(--ink);
-  background:color-mix(in srgb,var(--accent) 8%,var(--card));
-  border-left:3px solid var(--accent);border-radius:0 8px 8px 0;
-  padding:7px 10px;margin-top:4px;white-space:pre-wrap;}
+/* 日ごとのメモ: 見出しに見えないよう控えめに（背景なし・細い罫線・薄めの文字） */
+.hnote{flex-basis:100%;font-size:14px;line-height:1.5;color:var(--ink2);
+  border-left:2px solid var(--rule);padding:2px 0 2px 10px;margin-top:2px;white-space:pre-wrap;}
+.hnote::before{content:"メモ: ";color:var(--mut);font-weight:600;}
 .dnote{padding:10px 0 4px;}
 .dnote textarea{width:100%;min-height:64px;font:inherit;font-size:14px;
   padding:9px 10px;border:1px solid var(--rule);border-radius:10px;
