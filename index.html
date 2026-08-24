@@ -325,9 +325,10 @@ const END_EVS=["esales","eappo","ecase"];
 const KEY="kubo-timelog-v2";
 const OLDKEY="kubo-timelog-v1";
 const WD=["日","月","火","水","木","金","土"];
-// 1日の区切りは朝5時。深夜0〜5時の記録・日報は「前日」として扱う
-// （日付を跨いでから日報を書く運用のため。変えたい場合はこの数字だけ直す）
-const DAY_START=5;
+// 1日の区切りは19時。19:00以降の記録は「翌日」に計上する
+// （例: 8/24(月) 19:00 の記録 → 8/25(火) 扱い。8/25 は 8/24 19:00〜8/25 18:59）
+// 値は日の開始時刻（時）。-5 = 前日19:00開始。変えたい場合はこの数字だけ直す
+const DAY_START=-5;
 // 表示・集計用の「いまの作業日」（実時刻から5時間引いた日付）
 function workNow(){return new Date(Date.now()-DAY_START*36e5);}
 let db={sessions:[],events:[],running:null,goals:{}};
@@ -571,7 +572,7 @@ function render(){
 
   // 分析タブ: 今週
   const [wa,wb]=weekRange(), wt=totals(wa,wb), wc=evCounts(wa,wb);
-  const ws=new Date(wa), we=new Date(wa+6*864e5);
+  const ws=new Date(wa-DAY_START*36e5), we=new Date(ws.getTime()+6*864e5);
   document.getElementById("wkTitle").textContent=
     `今週 ${ws.getMonth()+1}/${ws.getDate()}（土）〜${we.getMonth()+1}/${we.getDate()}（金）`;
   const wmax=Math.max(1,...CATS.map(c=>wt[c.id]));
@@ -602,7 +603,7 @@ function renderHistory(){
     const note=noteOf(a);
     // 記録が無くてもメモがあれば残す（メモが隠れて読めなくなるのを防ぐ）
     if(sum<=0&&!EVS.some(e=>c[e.id]>0)&&!note&&i>0)continue;
-    const d=new Date(a);
+    const d=new Date(a-DAY_START*36e5);   // 表示用の日付（区切りシフトを戻す）
     // 週（土〜金）が変わったら区切り行を入れる。週の合計も添える
     const wsD=weekStart(new Date(a-DAY_START*36e5));
     const wa=wsD.getTime()+DAY_START*36e5, wb=wa+7*864e5;
@@ -610,7 +611,7 @@ function renderHistory(){
       lastWk=wa;
       const wt=totals(wa,wb), wc=evCounts(wa,wb);
       const wsum=Object.values(wt).reduce((x,y)=>x+y,0);
-      const we=new Date(wa+6*864e5);
+      const we=new Date(wsD.getTime()+6*864e5);
       h+=`<div class="wkhdr">
         <span class="wn">${wsD.getMonth()+1}/${wsD.getDate()}（土）〜${we.getMonth()+1}/${we.getDate()}（金）</span>
         <span class="ws">週計 ${hrs(wsum)}h ・ 提案 ${wc.prop}</span>
@@ -766,7 +767,7 @@ function historyText(){
   const lines=[["日付","曜日","合計h",...CATS.map(c=>c.nm+"h"),...EVS.map(e=>e.nm),"メモ"].join("\t")];
   for(let i=30;i>=0;i--){
     const a=base-i*864e5, b=a+864e5;
-    const t=totals(a,b), c=evCounts(a,b), d=new Date(a);
+    const t=totals(a,b), c=evCounts(a,b), d=new Date(a-DAY_START*36e5);
     const sum=Object.values(t).reduce((x,y)=>x+y,0);
     lines.push([
       `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`, WD[d.getDay()], hrs(sum),
@@ -797,12 +798,15 @@ document.getElementById("tAdd").onclick=()=>{
   const f=document.getElementById("mFrom").value, to=document.getElementById("mTo").value;
   if(!f||!to){alert("開始と終了の時刻を両方入れてください。");return;}
   const dv=document.getElementById("mDate").value;
-  let ta;
-  if(dv){const [Y,M,D]=dv.split("-").map(Number);ta=new Date(Y,M-1,D).getTime();}
-  else ta=todayRange()[0];
-  // 0:00〜4:59 は「選んだ日の深夜」= 暦の上では翌日として扱う
+  let mid;
+  if(dv){const [Y,M,D]=dv.split("-").map(Number);mid=new Date(Y,M-1,D).getTime();}
+  else{const d=workNow();mid=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();}
+  // 入力時刻を選んだ作業日の範囲（前日19:00〜当日18:59）に収める
+  const dayA=mid+DAY_START*36e5;
   const p=v=>{const [h,m]=v.split(":").map(Number);
-    return ta+((h<DAY_START?h+24:h)*60+m)*60000;};
+    let t=mid+(h*60+m)*60000;
+    if(t<dayA)t+=864e5;else if(t>=dayA+864e5)t-=864e5;
+    return t;};
   const s=p(f), e=p(to);
   if(e<=s){alert("終了は開始より後の時刻にしてください。");return;}
   const cat=document.getElementById("mCat").value;
