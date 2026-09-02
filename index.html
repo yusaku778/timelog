@@ -241,7 +241,7 @@ details .card{margin-top:8px;}
     <h2>今日の件数</h2>
     <div class="card" id="evList"></div>
 
-    <h2>後から入力（過去日の件数）</h2>
+    <h2>後から入力（過去日・翌日分の件数）</h2>
     <div class="card" style="padding:12px 14px">
       <div class="add" style="margin-top:0">
         <select id="eKind"></select>
@@ -325,10 +325,10 @@ const END_EVS=["esales","eappo","ecase"];
 const KEY="kubo-timelog-v2";
 const OLDKEY="kubo-timelog-v1";
 const WD=["日","月","火","水","木","金","土"];
-// 1日の区切りは19時。19:00以降の記録は「翌日」に計上する
-// （例: 8/24(月) 19:00 の記録 → 8/25(火) 扱い。8/25 は 8/24 19:00〜8/25 18:59）
-// 値は日の開始時刻（時）。-5 = 前日19:00開始。変えたい場合はこの数字だけ直す
-const DAY_START=-5;
+// 1日の区切りは0時（暦どおり）。翌日分として記録したいときは
+// 「後から入力」で明日の日付を選ぶ（過去日と同じ仕組みで未来日も入る）
+// 値は日の開始時刻（時）。過去に 5（朝5時区切り）や -5（19時区切り）を使った履歴あり
+const DAY_START=0;
 // 表示・集計用の「いまの作業日」（実時刻から5時間引いた日付）
 function workNow(){return new Date(Date.now()-DAY_START*36e5);}
 let db={sessions:[],events:[],running:null,goals:{}};
@@ -801,7 +801,7 @@ document.getElementById("tAdd").onclick=()=>{
   let mid;
   if(dv){const [Y,M,D]=dv.split("-").map(Number);mid=new Date(Y,M-1,D).getTime();}
   else{const d=workNow();mid=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();}
-  // 入力時刻を選んだ作業日の範囲（前日19:00〜当日18:59）に収める
+  // 入力時刻を選んだ日の範囲に収める（未来日=翌日分の入力も可）
   const dayA=mid+DAY_START*36e5;
   const p=v=>{const [h,m]=v.split(":").map(Number);
     let t=mid+(h*60+m)*60000;
