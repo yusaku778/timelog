@@ -48,7 +48,7 @@ button{font:inherit;color:inherit;cursor:pointer;}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:10;
   background:var(--paper);border-top:1px solid var(--line);
   padding:8px 14px calc(8px + env(safe-area-inset-bottom,0px));}
-.tabbar .tw{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;
+.tabbar .tw{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:6px;
   background:var(--card);border:1px solid var(--line);border-radius:13px;padding:5px;}
 .tabbar button{border:none;background:none;border-radius:9px;padding:10px 4px;
   font-size:14px;font-weight:700;color:var(--mut);-webkit-tap-highlight-color:transparent;}
@@ -257,7 +257,7 @@ details .card{margin-top:8px;}
     <h2 style="margin-top:0" id="moTitle">今月の進捗<span class="sub" id="moDays"></span></h2>
     <div class="card prog" id="month"></div>
 
-    <h2>今日のタイムライン</h2>
+    <h2 id="tlTitle">今日のタイムライン</h2>
     <div class="card tlwrap" id="tlCard"></div>
 
     <h2 id="wkTitle">今週（土〜金）</h2>
@@ -329,6 +329,8 @@ const WD=["日","月","火","水","木","金","土"];
 // 「後から入力」で明日の日付を選ぶ（過去日と同じ仕組みで未来日も入る）
 // 値は日の開始時刻（時）。過去に 5（朝5時区切り）や -5（19時区切り）を使った履歴あり
 const DAY_START=0;
+// 時間計測はいったん停止中（2026-09-05 本人指示）。true に戻せば計測タブごと復活する
+const TIME_ENABLED=false;
 // 表示・集計用の「いまの作業日」（実時刻から5時間引いた日付）
 function workNow(){return new Date(Date.now()-DAY_START*36e5);}
 let db={sessions:[],events:[],running:null,goals:{}};
@@ -552,9 +554,10 @@ function render(){
     {nm:"アポ",val:mc.eappo,goal:goal?goal.eappo:null,fmt:v=>v+"件"},
     {nm:"案件化",val:mc.ecase,goal:goal?goal.ecase:null,fmt:v=>v+"件"}
   ];
+  const showRows=TIME_ENABLED?rows:rows.filter(r=>r.nm!=="提案投下時間");
   const pace=Math.min(100,100*day/dim);
   document.getElementById("month").innerHTML=goal?
-    rows.map(r=>{
+    showRows.map(r=>{
       if(r.lb)return `<div class="row"><span class="t" style="font-weight:700">${r.lb}</span></div>`;
       const has=r.goal!=null&&r.goal>0;
       const pct=has?Math.min(100,100*r.val/r.goal):0;
@@ -578,6 +581,7 @@ function render(){
   const wmax=Math.max(1,...CATS.map(c=>wt[c.id]));
   const wsum=CATS.reduce((a,c)=>a+wt[c.id],0);
   document.getElementById("week").innerHTML=
+    !TIME_ENABLED?weekCountRows(wc):
     CATS.map(c=>`<div class="row ${c.cls}">
       <span class="n" style="color:var(--ink)">${c.nm}</span>
       <span class="meter"><i style="width:${Math.round(100*wt[c.id]/wmax)}%"></i></span>
@@ -614,19 +618,25 @@ function renderHistory(){
       const we=new Date(wsD.getTime()+6*864e5);
       h+=`<div class="wkhdr">
         <span class="wn">${wsD.getMonth()+1}/${wsD.getDate()}（土）〜${we.getMonth()+1}/${we.getDate()}（金）</span>
-        <span class="ws">週計 ${hrs(wsum)}h ・ 提案 ${wc.prop}</span>
+        <span class="ws">週計 ${TIME_ENABLED?hrs(wsum)+"h ・ ":""}提案 ${wc.prop}</span>
       </div>`;
     }
-    const hours=CATS.filter(cat=>t[cat.id]>0)
-      .map(cat=>`${cat.nm} ${hrs(t[cat.id])}h`).join(" ・ ");
+    const hours=TIME_ENABLED?CATS.filter(cat=>t[cat.id]>0)
+      .map(cat=>`${cat.nm} ${hrs(t[cat.id])}h`).join(" ・ "):"";
     const cnts=EVS.filter(e=>c[e.id]>0)
       .map(e=>`${e.nm} ${c[e.id]}`).join(" ・ ");
+    // +1に付けたメモ（案件名など）を行に常時表示する
+    const ems=evsIn(a,b).filter(e=>e.nm).map(e=>{
+      const ev=EVS.find(x=>x.id===e.t);
+      return (e.t==="prop"?"":(ev?ev.nm:e.t))+"「"+esc(e.nm)+"」";
+    }).join(" ・ ");
     h+=`<div class="row" style="flex-wrap:wrap">
       <span class="n">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）${i===0?"・今日":""}</span>
-      <span class="d">${hrs(sum)}h</span>
+      ${TIME_ENABLED?`<span class="d">${hrs(sum)}h</span>`:""}
       <button class="hbtn" data-a="${a}">${openDay===a?"閉じる":"修正"}</button>
       ${hours?`<span class="hline">${hours}</span>`:""}
       ${cnts?`<span class="hline">件数: ${cnts}</span>`:""}
+      ${ems?`<span class="hline">件数メモ: ${ems}</span>`:""}
       ${note?`<div class="hnote">${esc(note)}</div>`:""}
       <div class="hdet" id="hdet-${a}"${openDay===a?"":" hidden"}></div>
     </div>`;
@@ -678,7 +688,13 @@ function renderDayDetail(a){
   el.querySelectorAll("[data-ei]").forEach(btn=>btn.onclick=()=>undoEvent(+btn.dataset.ei));
 }
 
+function weekCountRows(wc){
+  return `<div class="row"><span class="n">SES</span><span class="t">提案 ${wc.prop} ・ 面談依頼 ${wc.meet} ・ オファー ${wc.offer} ・ 決定 ${wc.deal}</span></div>`+
+    `<div class="row"><span class="n">エンド開拓</span><span class="t">営業 ${wc.esales} ・ アポ ${wc.eappo} ・ 案件化 ${wc.ecase}</span></div>`;
+}
+
 function renderTimeline(ta,tb){
+  if(!TIME_ENABLED)return;
   const box=document.getElementById("tlCard");
   const list=db.sessions.filter(s=>s.start>=ta&&s.start<tb)
     .map(s=>({cat:s.cat,start:s.start,end:s.end})).sort((a,b)=>a.start-b.start);
@@ -728,35 +744,44 @@ document.getElementById("setSave").onclick=()=>{
 function copyText(){
   const now=workNow();
   const [ta,tb]=todayRange(), tt=totals(ta,tb), tc=evCounts(ta,tb);
-  const list=db.sessions.filter(s=>s.start>=ta&&s.start<tb).sort((a,b)=>a.start-b.start);
-  const sum=Object.values(tt).reduce((a,b)=>a+b,0);
-  let t=`■工数 ${now.getMonth()+1}/${now.getDate()}（${WD[now.getDay()]}）合計 ${hrs(sum)}h\n`;
-  CATS.forEach(c=>{if(tt[c.id]>0)t+=`・${c.nm} ${hrs(tt[c.id])}h\n`;});
-  if(list.length){
-    t+="セッション:\n";
-    list.forEach(s=>{const c=CATS.find(x=>x.id===s.cat)||{nm:s.cat};
-      t+=`  ${hm(s.start)}–${hm(s.end)} ${c.nm} ${dur(s.ms)}\n`;});
+  const dstr=`${now.getMonth()+1}/${now.getDate()}（${WD[now.getDay()]}）`;
+  let t;
+  if(TIME_ENABLED){
+    const list=db.sessions.filter(x=>x.start>=ta&&x.start<tb).sort((x,y)=>x.start-y.start);
+    const sum=Object.values(tt).reduce((x,y)=>x+y,0);
+    t=`■工数 ${dstr}合計 ${hrs(sum)}h`+"\n";
+    CATS.forEach(c=>{if(tt[c.id]>0)t+=`・${c.nm} ${hrs(tt[c.id])}h`+"\n";});
+    if(list.length){
+      t+="セッション:\n";
+      list.forEach(x=>{const c=CATS.find(y=>y.id===x.cat)||{nm:x.cat};
+        t+=`  ${hm(x.start)}–${hm(x.end)} ${c.nm} ${dur(x.ms)}`+"\n";});
+    }
+  }else{
+    t=`■件数 ${dstr}`+"\n";
   }
-  t+=`件数(今日) SES: 提案 ${tc.prop} ・ 面談依頼 ${tc.meet} ・ オファー ${tc.offer} ・ 決定 ${tc.deal}\n`;
-  t+=`件数(今日) エンド開拓: 営業 ${tc.esales} ・ アポ ${tc.eappo} ・ 案件化 ${tc.ecase}\n`;
+  t+=`件数(今日) SES: 提案 ${tc.prop} ・ 面談依頼 ${tc.meet} ・ オファー ${tc.offer} ・ 決定 ${tc.deal}`+"\n";
+  t+=`件数(今日) エンド開拓: 営業 ${tc.esales} ・ アポ ${tc.eappo} ・ 案件化 ${tc.ecase}`+"\n";
   const named=evsIn(ta,tb).filter(e=>e.nm);
   if(named.length)t+=`  メモ: ${named.map(e=>{
     const ev=EVS.find(x=>x.id===e.t);
     return (e.t==="prop"?"":(ev?ev.nm:e.t)+" ")+e.nm;
-  }).join(" / ")}\n`;
+  }).join(" / ")}`+"\n";
   const tn=noteOf(ta);
-  if(tn)t+=`メモ: ${tn}
-`;
+  if(tn)t+=`メモ: ${tn}`+"\n";
   const [ma,mb]=monthRange(), mc=evCounts(ma,mb), mt=totals(ma,mb);
   const mk=monthKey(), goal=db.goals[mk]||{};
   const gs=(v,g,u)=>g!=null?`${v}/${g}${u}`:`${v}${u}`;
-  t+=`月累計 SES: 提案 ${gs(mc.prop,goal.prop,"件")} ・ 投下時間 ${gs(hrs(mt["S2607-02"]),goal.hours,"h")} ・ 面談依頼 ${gs(mc.meet,goal.meet,"")} ・ オファー ${gs(mc.offer,goal.offer,"")} ・ 決定 ${gs(mc.deal,goal.deal,"")}\n`;
-  t+=`月累計 エンド開拓: 営業 ${gs(mc.esales,goal.esales,"")} ・ アポ ${gs(mc.eappo,goal.eappo,"")} ・ 案件化 ${gs(mc.ecase,goal.ecase,"")}\n`;
+  t+=`月累計 SES: 提案 ${gs(mc.prop,goal.prop,"件")}`
+    +(TIME_ENABLED?` ・ 投下時間 ${gs(hrs(mt["S2607-02"]),goal.hours,"h")}`:"")
+    +` ・ 面談依頼 ${gs(mc.meet,goal.meet,"")} ・ オファー ${gs(mc.offer,goal.offer,"")} ・ 決定 ${gs(mc.deal,goal.deal,"")}`+"\n";
+  t+=`月累計 エンド開拓: 営業 ${gs(mc.esales,goal.esales,"")} ・ アポ ${gs(mc.eappo,goal.eappo,"")} ・ 案件化 ${gs(mc.ecase,goal.ecase,"")}`+"\n";
   const [wa,wb]=weekRange(), wt=totals(wa,wb), wc=evCounts(wa,wb);
-  const wsum=CATS.reduce((a,c)=>a+wt[c.id],0);
-  t+=`今週累計 ${hrs(wsum)}h（`+CATS.filter(c=>wt[c.id]>0)
-      .map(c=>`${c.nm} ${hrs(wt[c.id])}h`).join(" / ")+`）\n`;
-  t+=`今週件数 SES: 提案 ${wc.prop} ・ 面談依頼 ${wc.meet} ・ オファー ${wc.offer} ・ 決定 ${wc.deal}\n`;
+  if(TIME_ENABLED){
+    const wsum=CATS.reduce((x,c)=>x+wt[c.id],0);
+    t+=`今週累計 ${hrs(wsum)}h（`+CATS.filter(c=>wt[c.id]>0)
+        .map(c=>`${c.nm} ${hrs(wt[c.id])}h`).join(" / ")+`）`+"\n";
+  }
+  t+=`今週件数 SES: 提案 ${wc.prop} ・ 面談依頼 ${wc.meet} ・ オファー ${wc.offer} ・ 決定 ${wc.deal}`+"\n";
   t+=`今週件数 エンド開拓: 営業 ${wc.esales} ・ アポ ${wc.eappo} ・ 案件化 ${wc.ecase}`;
   return t;
 }
@@ -768,11 +793,15 @@ function historyText(){
   for(let i=30;i>=0;i--){
     const a=base-i*864e5, b=a+864e5;
     const t=totals(a,b), c=evCounts(a,b), d=new Date(a-DAY_START*36e5);
+    const evm=evsIn(a,b).filter(e=>e.nm).map(e=>{
+      const ev=EVS.find(x=>x.id===e.t);
+      return (e.t==="prop"?"":(ev?ev.nm:e.t))+"「"+e.nm+"」";
+    }).join(" ・ ");
     const sum=Object.values(t).reduce((x,y)=>x+y,0);
     lines.push([
       `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`, WD[d.getDay()], hrs(sum),
       ...CATS.map(x=>hrs(t[x.id])), ...EVS.map(e=>c[e.id]),
-      noteOf(a).replace(/[\t\n]+/g," ")
+      (noteOf(a)+((noteOf(a)&&evm)?" ／ ":"")+evm).replace(/[\t\n]+/g," ")
     ].join("\t"));
   }
   return lines.join("\n");
@@ -979,7 +1008,22 @@ function tick(){
 
 document.addEventListener("touchstart",function(){},{passive:true});
 
-load();render();
+load();
+if(!TIME_ENABLED){
+  const tbBtn=document.querySelector('.tabbar button[data-p="tab-time"]');
+  if(tbBtn)tbBtn.remove();
+  document.getElementById("tab-time").classList.remove("on");
+  document.querySelector('.tabbar button[data-p="tab-count"]').classList.add("on");
+  document.getElementById("tab-count").classList.add("on");
+  document.getElementById("tlTitle").hidden=true;
+  document.getElementById("tlCard").hidden=true;
+  if(db.running){ // 回りっぱなしのタイマーは記録してから終了（データを捨てない）
+    const ms=Date.now()-db.running.start;
+    if(ms>=30000)db.sessions.push({cat:db.running.cat,start:db.running.start,end:Date.now(),ms:ms});
+    db.running=null;save();
+  }
+}
+render();
 setInterval(tick,1000);
 if("serviceWorker" in navigator&&location.hostname.endsWith("github.io")){
   navigator.serviceWorker.register("./sw.js").catch(()=>{});
