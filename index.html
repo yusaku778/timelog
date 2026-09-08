@@ -263,6 +263,9 @@ details .card{margin-top:8px;}
     <h2 id="wkTitle">今週（土〜金）</h2>
     <div class="card wk" id="week"></div>
 
+    <h2 id="moCntTitle">今月</h2>
+    <div class="card" id="moCnt"></div>
+
     <h2>履歴（過去30日）</h2>
     <div class="card" id="hist"></div>
     <button class="btn" id="histCopy">履歴をコピー（30日・表形式）</button>
@@ -590,6 +593,10 @@ function render(){
     `<div class="row"><span class="n">合計</span><span class="d">${hrs(wsum)}h</span></div>`+
     `<div class="row"><span class="n">SES</span><span class="t">提案 ${wc.prop} ・ 面談依頼 ${wc.meet} ・ オファー ${wc.offer} ・ 決定 ${wc.deal}</span></div>`+
     `<div class="row"><span class="n">エンド開拓</span><span class="t">営業 ${wc.esales} ・ アポ ${wc.eappo} ・ 案件化 ${wc.ecase}</span></div>`;
+
+  // 今月の件数サマリ（目標が未設定でも見える）
+  document.getElementById("moCntTitle").textContent=`今月（${now.getMonth()+1}/1〜${now.getMonth()+1}/${dim}）`;
+  document.getElementById("moCnt").innerHTML=weekCountRows(mc);
 
   renderHistory();
   renderSettings();
