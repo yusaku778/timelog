@@ -105,6 +105,14 @@ h2 .sub{margin-left:auto;font-weight:600;}
   padding:14px;box-shadow:var(--shadow);}
 .inbox .memo{width:100%;font:inherit;font-size:14px;padding:10px 11px;margin-bottom:10px;
   border:1px solid var(--rule);border-radius:10px;background:var(--card);color:var(--ink);}
+/* 計上先の切替（今日/明日）。明日モードは枠と注意書きで強調 */
+.dayseg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--paper);
+  border:1px solid var(--line);border-radius:11px;padding:4px;margin-bottom:10px;}
+.dayseg button{border:none;background:none;border-radius:8px;padding:8px 4px;
+  font-size:14px;font-weight:700;color:var(--mut);-webkit-tap-highlight-color:transparent;}
+.dayseg button.on{background:var(--accent);color:#fff;}
+.tmrwnote{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:8px;}
+.inbox.tmrw{border:2px solid var(--accent);}
 .plusrow{display:flex;gap:12px;align-items:center;}
 .plus{flex:1;padding:20px 10px;border:none;border-radius:12px;
   background:var(--accent);color:#fff;font-size:20px;font-weight:800;
@@ -226,6 +234,11 @@ details .card{margin-top:8px;}
   <!-- ＋ 件数 -->
   <div class="panel" id="tab-count">
     <div class="inbox">
+      <div class="dayseg">
+        <button id="segToday" class="on">今日に計上</button>
+        <button id="segTmrw">明日に計上</button>
+      </div>
+      <div class="tmrwnote" id="tmrwNote" hidden></div>
       <input class="memo" id="memo" placeholder="案件名・メモ（任意）→ 次に押す +1 に付きます">
       <div class="glabel">SES</div>
       <div class="plusrow">
@@ -334,6 +347,8 @@ const WD=["日","月","火","水","木","金","土"];
 const DAY_START=0;
 // 時間計測はいったん停止中（2026-09-05 本人指示）。true に戻せば計測タブごと復活する
 const TIME_ENABLED=false;
+// 計上先: false=今日(既定) / true=明日。日付が変わると自動で今日に戻る
+let tomorrowMode=false, modeSetDay=null;
 // 表示・集計用の「いまの作業日」（実時刻から5時間引いた日付）
 function workNow(){return new Date(Date.now()-DAY_START*36e5);}
 let db={sessions:[],events:[],running:null,goals:{}};
@@ -429,7 +444,7 @@ function undo(){
 function addEvent(type){
   const inp=document.getElementById("memo");
   const nm=inp.value.trim();
-  const e={t:type,ts:Date.now()};
+  const e={t:type,ts:Date.now()+(tomorrowMode?864e5:0)};
   if(nm)e.nm=nm;
   db.events.push(e);
   inp.value="";
@@ -503,6 +518,16 @@ function render(){
   // 件数タブ
   const [ma,mb]=monthRange();
   const tc=evCounts(ta,tb), mc=evCounts(ma,mb);
+  // 計上先モード: 日付が変わっていたら今日に戻す（押し間違い防止）
+  if(tomorrowMode&&modeSetDay!==ta)tomorrowMode=false;
+  const tmD=new Date(tb-DAY_START*36e5);
+  document.getElementById("segToday").classList.toggle("on",!tomorrowMode);
+  document.getElementById("segTmrw").classList.toggle("on",tomorrowMode);
+  document.querySelector(".inbox").classList.toggle("tmrw",tomorrowMode);
+  const tN=document.getElementById("tmrwNote");
+  tN.hidden=!tomorrowMode;
+  tN.textContent=`▼ 明日 ${tmD.getMonth()+1}/${tmD.getDate()}（${WD[tmD.getDay()]}）分として記録中`;
+  document.getElementById("propBtn").textContent=tomorrowMode?"提案 +1（明日）":"提案 +1";
   document.getElementById("propToday").textContent=tc.prop;
   document.getElementById("propMonth").textContent=mc.prop;
   const mkBtns=(el,ids)=>{
@@ -515,20 +540,21 @@ function render(){
 
   const lastBox=document.getElementById("lastEv");
   const todayEvs=evsIn(ta,tb);
-  if(todayEvs.length){
-    const e=todayEvs[todayEvs.length-1], gi=db.events.indexOf(e);
+  const viewEvs=todayEvs.concat(evsIn(tb,tb+864e5));   // 明日分も表示対象
+  if(viewEvs.length){
+    const e=viewEvs[viewEvs.length-1], gi=db.events.indexOf(e);
     const ev=EVS.find(x=>x.id===e.t);
     lastBox.hidden=false;
     lastBox.innerHTML=
-      `<span>直近: ${hm(e.ts)} ${ev?ev.nm:e.t}${e.nm?` <b>「${esc(e.nm)}」</b>`:""}</span>
+      `<span>直近: ${e.ts>=tb?"明日 ":""}${hm(e.ts)} ${ev?ev.nm:e.t}${e.nm?` <b>「${esc(e.nm)}」</b>`:""}</span>
        <button id="lastUndo">取消</button>`;
     document.getElementById("lastUndo").onclick=()=>undoEvent(gi);
   }else{lastBox.hidden=true;lastBox.innerHTML="";}
 
   const eBox=document.getElementById("evList");
-  eBox.innerHTML=todayEvs.length?todayEvs.slice().reverse().map(e=>{
+  eBox.innerHTML=viewEvs.length?viewEvs.slice().reverse().map(e=>{
     const gi=db.events.indexOf(e), ev=EVS.find(x=>x.id===e.t);
-    return `<div class="row evrow"><span class="t">${hm(e.ts)}</span>
+    return `<div class="row evrow"><span class="t">${e.ts>=tb?"明日 ":""}${hm(e.ts)}</span>
       <span class="n" style="flex:none">${ev?ev.nm:e.t}</span>
       <input data-gi="${gi}" placeholder="案件名・メモ（任意）" value="${esc(e.nm||"")}">
       <button class="x" data-gi="${gi}">×</button></div>`;
@@ -822,6 +848,8 @@ async function toClipboard(txt){
 
 document.getElementById("stopBtn").onclick=stop;
 document.getElementById("undoBtn").onclick=undo;
+document.getElementById("segToday").onclick=()=>{tomorrowMode=false;render();};
+document.getElementById("segTmrw").onclick=()=>{tomorrowMode=true;modeSetDay=todayRange()[0];render();};
 document.getElementById("propBtn").onclick=()=>addEvent("prop");
 document.getElementById("mAdd").onclick=()=>{
   const min=parseInt(document.getElementById("mMin").value,10);
